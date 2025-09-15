@@ -1,0 +1,39 @@
+# Git files
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Docker files
+docker-compose.yml
+
+# Local uploads (will be stored in Azure Storage)
+wp-content/uploads/
+
+# Cache and temporary files
+wp-content/cache/
+wp-content/upgrade/
+wp-content/backup*/
+
+# WordPress debug files
+debug.log
+error_log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node.js files
+node_modules/
+npm-debug.log
+
+# Composer files (if not using vendor)
+vendor/ 
