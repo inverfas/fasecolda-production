@@ -2,44 +2,26 @@
 version: "3.9"
 
 services:
-  # MySQL database service
-  db:
-    image: mysql:8.0
-    container_name: db
-    environment:
-      MYSQL_DATABASE: ${WORDPRESS_DB_NAME}
-      MYSQL_USER: ${WORDPRESS_DB_USER}
-      MYSQL_PASSWORD: ${WORDPRESS_DB_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${WORDPRESS_DB_PASSWORD}
-    # Use native password authentication for WordPress compatibility
-    command: --default-authentication-plugin=mysql_native_password
-    volumes:
-      # Persist database data
-      - db_data:/var/lib/mysql
-
-  # WordPress application service
+  # WordPress application service (conectado a DB de producción)
   wordpress:
-    image: wordpress:latest # Includes Apache server (supports .htaccess)
+    image: fasecolda-wp # Tu imagen personalizada
     container_name: wordpress
-    # Ensure database is started before WordPress
-    depends_on: [db]
     ports:
       # Map host port 8080 to container port 80
       - "8080:80"
     environment:
-      # Database connection settings
+      # Database connection settings (Base de datos de producción)
       WORDPRESS_DB_HOST: ${WORDPRESS_DB_HOST}
       WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
       WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
       WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
       # Additional WordPress configuration
       WORDPRESS_CONFIG_EXTRA: |
-        define('WP_MEMORY_LIMIT','256M');
+        define('WP_MEMORY_LIMIT','512M');
     volumes:
       # Persist WordPress files and uploads
       - wp_data:/var/www/html
 
 # Named volumes for data persistence
 volumes:
-  db_data:    # MySQL database storage
   wp_data:    # WordPress files and uploads storage

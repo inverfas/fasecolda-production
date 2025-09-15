@@ -10,27 +10,6 @@ RUN curl -o wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages
  && chmod +x wp-cli.phar \
  && mv wp-cli.phar /usr/local/bin/wp
 
-# Clean entire html directory to ensure fresh state on every build
-RUN rm -rf /var/www/html/* /var/www/html/.*  2>/dev/null || true
-
-COPY src/ /var/www/html/
-
-# Set proper ownership and permissions for WordPress directories
-RUN chown -R www-data:www-data /var/www/html \
- && find /var/www/html -type d -exec chmod 755 {} \; \
- && find /var/www/html -type f -exec chmod 644 {} \; \
- && chmod 666 /var/www/html/wp-config.php 2>/dev/null || true
-
-# Create directory for artifacts plugins
-RUN mkdir -p /usr/local/share/artifacts-plugins
-
-# Copy downloaded plugins from Azure Artifacts (directory created by pipeline)
-COPY artifacts-plugins /usr/local/share/artifacts-plugins
-
-# Copy entrypoint scripts
-COPY scripts/entrypoint.sh /usr/local/bin/custom-entrypoint.sh
-RUN chmod +x /usr/local/bin/custom-entrypoint.sh
-
 # Ensure proper permissions for WordPress critical directories
 RUN mkdir -p /var/www/html/wp-content/uploads \
  && mkdir -p /var/www/html/wp-content/plugins \
