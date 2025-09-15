@@ -10,13 +10,18 @@ RUN curl -o wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages
  && chmod +x wp-cli.phar \
  && mv wp-cli.phar /usr/local/bin/wp
 
+# Copy custom wp-config.php
+COPY wp-config.php /var/www/html/wp-config.php
+
 # Ensure proper permissions for WordPress critical directories
 RUN mkdir -p /var/www/html/wp-content/uploads \
  && mkdir -p /var/www/html/wp-content/plugins \
  && mkdir -p /var/www/html/wp-content/themes \
  && chown -R www-data:www-data /var/www/html/wp-content \
+ && chown www-data:www-data /var/www/html/wp-config.php \
  && chmod -R 755 /var/www/html/wp-content \
- && chmod -R 775 /var/www/html/wp-content/uploads
+ && chmod -R 775 /var/www/html/wp-content/uploads \
+ && chmod 644 /var/www/html/wp-config.php
 
 # Configure PHP sessions and temp directory
 RUN mkdir -p /var/lib/php/sessions /tmp \
