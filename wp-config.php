@@ -64,8 +64,12 @@ define('DB_PASSWORD', getenv('WORDPRESS_DB_PASSWORD'));
 define('DB_HOST',     getenv('WORDPRESS_DB_HOST') . ':3306');
 
 // MySQL SSL Configuration
-define('MYSQL_CLIENT_FLAGS', MYSQLI_CLIENT_SSL);
-define('DB_SSL', true);
+if (filter_var(getenv('DB_SSL'), FILTER_VALIDATE_BOOLEAN)) {
+    define('MYSQL_CLIENT_FLAGS', MYSQLI_CLIENT_SSL);
+    define('DB_SSL', true);
+} else {
+    define('DB_SSL', false);
+}
 define('DB_CHARSET',  'utf8mb4');
 define('DB_COLLATE',  '');
 

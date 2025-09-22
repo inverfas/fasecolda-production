@@ -77,7 +77,12 @@ docker build -t $IMAGE_NAME "$BASE_DIR"
 echo "📤 Subiendo imagen a ECR: $IMAGE_NAME"
 docker push $IMAGE_NAME
 
-echo "✅ Imagen construida y subida a ECR correctamente"
+# Limpiar imágenes intermedias y sin usar
+echo "🧼 Limpiando imágenes huérfanas y sin usar..."
+docker image prune -f
+docker system prune -f --volumes=false
+
+echo "✅ Imagen construida, subida a ECR y limpieza completada"
 
 # Crear volumen si no existe
 if ! docker volume ls | grep -q "$VOLUME_NAME"; then
