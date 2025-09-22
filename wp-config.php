@@ -58,20 +58,53 @@ switch ($environment_type) {
 }
 
 // Database configuration
-define('DB_NAME',     getenv('WORDPRESS_DB_NAME'));
-define('DB_USER',     getenv('WORDPRESS_DB_USER'));
-define('DB_PASSWORD', getenv('WORDPRESS_DB_PASSWORD'));
-define('DB_HOST',     getenv('WORDPRESS_DB_HOST') . ':3306');
+$db_name = getenv('WORDPRESS_DB_NAME');
+$db_user = getenv('WORDPRESS_DB_USER');
+$db_password = getenv('WORDPRESS_DB_PASSWORD');
+$db_host = getenv('WORDPRESS_DB_HOST') . ':3306';
+
+// Debug logging for database configuration
+error_log('=== DATABASE CONFIGURATION DEBUG ===');
+error_log('DB_NAME: ' . ($db_name ? $db_name : 'NOT SET'));
+error_log('DB_USER: ' . ($db_user ? $db_user : 'NOT SET'));
+error_log('DB_PASSWORD: ' . ($db_password ? 'SET (length: ' . strlen($db_password) . ')' : 'NOT SET'));
+error_log('DB_HOST: ' . ($db_host ? $db_host : 'NOT SET'));
+
+define('DB_NAME',     $db_name);
+define('DB_USER',     $db_user);
+define('DB_PASSWORD', $db_password);
+define('DB_HOST',     $db_host);
 
 // MySQL SSL Configuration
-if (filter_var(getenv('DB_SSL'), FILTER_VALIDATE_BOOLEAN)) {
+$db_ssl = filter_var(getenv('DB_SSL'), FILTER_VALIDATE_BOOLEAN);
+error_log('DB_SSL setting: ' . ($db_ssl ? 'true' : 'false'));
+
+if ($db_ssl) {
     define('MYSQL_CLIENT_FLAGS', MYSQLI_CLIENT_SSL);
     define('DB_SSL', true);
+    error_log('SSL enabled for database connection');
 } else {
     define('DB_SSL', false);
+    error_log('SSL disabled for database connection');
 }
 define('DB_CHARSET',  'utf8mb4');
 define('DB_COLLATE',  '');
+
+// Test database connectivity
+error_log('=== TESTING DATABASE CONNECTIVITY ===');
+try {
+    $test_connection = new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
+    if ($test_connection->connect_error) {
+        error_log('Database connection FAILED: ' . $test_connection->connect_error);
+        error_log('MySQL error number: ' . $test_connection->connect_errno);
+    } else {
+        error_log('Database connection SUCCESS');
+        error_log('MySQL server version: ' . $test_connection->server_info);
+    }
+    $test_connection->close();
+} catch (Exception $e) {
+    error_log('Database connection EXCEPTION: ' . $e->getMessage());
+}
 
 // WordPress security keys
 define('AUTH_KEY',         getenv('AUTH_KEY'));
