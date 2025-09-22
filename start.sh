@@ -41,6 +41,24 @@ for c in $WP_CONTAINER $NGINX_CONTAINER; do
   fi
 done
 
+# Verificar e instalar AWS CLI si no existe
+if ! command -v aws &> /dev/null; then
+  echo "📦 Instalando AWS CLI..."
+  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    # Ubuntu/Debian
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    sudo apt-get update && sudo apt-get install -y unzip
+    unzip awscliv2.zip
+    sudo ./aws/install
+    rm -rf awscliv2.zip aws/
+  elif [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+    sudo installer -pkg AWSCLIV2.pkg -target /
+    rm AWSCLIV2.pkg
+  fi
+fi
+
 # Autenticar con AWS ECR
 echo "🔐 Autenticando con AWS ECR..."
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
