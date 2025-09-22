@@ -2,7 +2,7 @@ FROM wordpress:latest
 
 # Install basic dependencies
 RUN apt-get update \
- && apt-get install -y --no-install-recommends unzip curl jq ca-certificates openssh-client \
+ && apt-get install -y --no-install-recommends unzip curl jq ca-certificates openssh-client nano telnet \
  && rm -rf /var/lib/apt/lists/*
 
 # Install WP-CLI for WordPress management
