@@ -5,7 +5,6 @@ set -e
 # Directorio base relativo al script
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="$BASE_DIR/.env"
-IMAGE_NAME="fasecolda-wp"
 NGINX_IMAGE="nginx:alpine"
 WP_CONTAINER="fasecolda-wp"
 NGINX_CONTAINER="fasecolda-nginx"
@@ -13,6 +12,12 @@ NETWORK_NAME="fasecolda-net"
 PORT=80
 VOLUME_NAME="fasecolda-wp-data"
 NGINX_CONF="$BASE_DIR/nginx/default.conf"
+
+# Cargar variables de entorno
+source $ENV_FILE
+
+# Configurar imagen de ECR
+IMAGE_NAME="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
 echo "🔧 Iniciando despliegue de WordPress + NGINX..."
 
@@ -36,13 +41,19 @@ for c in $WP_CONTAINER $NGINX_CONTAINER; do
   fi
 done
 
-# Build de la imagen PHP-FPM
-echo "📦 Construyendo imagen WordPress (PHP-FPM): $IMAGE_NAME"
-docker build -t $IMAGE_NAME "$BASE_DIR"
+# Autenticar con AWS ECR
+echo "🔐 Autenticando con AWS ECR..."
+aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+aws configure set default.region $AWS_REGION
 
-# Limpiar imágenes intermedias
-echo "🧼 Eliminando imágenes huérfanas..."
-docker image prune -f
+# Login a ECR
+echo "🔑 Haciendo login a ECR..."
+aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+# Descargar imagen desde ECR
+echo "📥 Descargando imagen desde ECR: $IMAGE_NAME"
+docker pull $IMAGE_NAME
 
 # Crear volumen si no existe
 if ! docker volume ls | grep -q "$VOLUME_NAME"; then

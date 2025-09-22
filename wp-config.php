@@ -22,14 +22,15 @@ switch ($environment_type) {
             define('WP_DEBUG_DISPLAY', false);
         }
         if (!defined('FORCE_SSL_ADMIN')) {
-            define('FORCE_SSL_ADMIN', true);
+            define('FORCE_SSL_ADMIN', filter_var(getenv('FORCE_SSL_ADMIN'), FILTER_VALIDATE_BOOLEAN));
         }
-        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-            $_SERVER['HTTPS'] = 'on';
-        }
-        if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
-            $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
-        }
+        // Comentado para usar solo HTTP
+        // if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+        //     $_SERVER['HTTPS'] = 'on';
+        // }
+        // if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+        //     $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
+        // }
         break;
 
     case 'production':
@@ -44,14 +45,15 @@ switch ($environment_type) {
             define('WP_DEBUG_DISPLAY', false);
         }
         if (!defined('FORCE_SSL_ADMIN')) {
-            define('FORCE_SSL_ADMIN', true);
+            define('FORCE_SSL_ADMIN', filter_var(getenv('FORCE_SSL_ADMIN'), FILTER_VALIDATE_BOOLEAN));
         }
-        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-            $_SERVER['HTTPS'] = 'on';
-        }
-        if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
-            $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
-        }
+        // Comentado para usar solo HTTP
+        // if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+        //     $_SERVER['HTTPS'] = 'on';
+        // }
+        // if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+        //     $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
+        // }
         break;
 }
 
