@@ -69,9 +69,15 @@ aws configure set default.region $AWS_REGION
 echo "🔑 Haciendo login a ECR..."
 aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
 
-# Descargar imagen desde ECR
-echo "📥 Descargando imagen desde ECR: $IMAGE_NAME"
-docker pull $IMAGE_NAME
+# Build de la imagen local
+echo "📦 Construyendo imagen WordPress: $IMAGE_NAME"
+docker build -t $IMAGE_NAME "$BASE_DIR"
+
+# Push de la imagen a ECR
+echo "📤 Subiendo imagen a ECR: $IMAGE_NAME"
+docker push $IMAGE_NAME
+
+echo "✅ Imagen construida y subida a ECR correctamente"
 
 # Crear volumen si no existe
 if ! docker volume ls | grep -q "$VOLUME_NAME"; then
