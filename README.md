@@ -1,194 +1,132 @@
-# WordPress Setup
+# WordPress con Docker y NGINX para Despliegue en EC2
 
-A Docker-based WordPress configuration for a single WordPress site.
+Este proyecto configura un entorno de WordPress utilizando Docker, con NGINX como proxy inverso. Está diseñado para ser construido y desplegado en una instancia de Amazon EC2, utilizando Amazon ECR (Elastic Container Registry) para el almacenamiento de la imagen de Docker.
 
-## Overview
+## Arquitectura
 
-This project sets up a WordPress site using Docker Compose, providing a complete WordPress environment with MySQL database and Apache server.
+El proyecto se compone de tres servicios principales orquestados a través de un script de despliegue:
 
-## Prerequisites
+1.  **Aplicación WordPress**: Un contenedor Docker que ejecuta una imagen personalizada de WordPress (basada en `wordpress:latest`) con `wp-cli` y otras herramientas.
+2.  **Proxy Inverso NGINX**: Un contenedor NGINX que dirige el tráfico del puerto 80 al contenedor de WordPress.
+3.  **Red Docker**: Una red interna (`fasecolda-net`) para la comunicación entre los contenedores.
+4.  **Volumen Persistente**: Un volumen de Docker (`fasecolda-wp-data`) para garantizar que los datos de WordPress (archivos, plugins, etc.) persistan entre reinicios y actualizaciones de los contenedores.
 
-- Docker and Docker Compose installed on your system
-- Basic knowledge of WordPress and Docker
+## Prerrequisitos
 
-## Quick Start
+Antes de comenzar, asegúrate de tener lo siguiente:
 
-### Opción 1: Usando Docker Compose directamente
+*   Una instancia de Amazon EC2 con Docker y Docker Compose instalados.
+*   Credenciales de AWS (`AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`) con permisos para acceder a ECR.
+*   Un repositorio en Amazon ECR para almacenar la imagen de Docker.
 
-#### 1. Environment Setup
+## Pasos para el Despliegue en EC2
 
-Create a `.env` file in the project root with the following variables:
+Sigue estos pasos para clonar y ejecutar el proyecto en una instancia de EC2.
+
+### 1. Clonar el Repositorio
+
+Conéctate a tu instancia EC2 y clona este repositorio:
+
+```bash
+git clone <URL_DEL_REPOSITORIO>
+cd sm001-15-worpress-fasecolda
+```
+
+### 2. Configurar las Variables de Entorno
+
+Crea un archivo `.env` a partir del ejemplo proporcionado:
+
+```bash
+cp .env.example .env
+```
+
+Ahora, edita el archivo `.env` y completa las siguientes variables:
 
 ```env
-MYSQL_DATABASE=wordpress
-MYSQL_USER=wordpress
-MYSQL_PASSWORD=your_secure_password
-MYSQL_ROOT_PASSWORD=your_root_password
+# Credenciales de AWS
+AWS_ACCESS_KEY_ID=TU_ACCESS_KEY
+AWS_SECRET_ACCESS_KEY=TU_SECRET_KEY
+AWS_REGION=tu-region-aws # ej. us-east-1
+
+# Repositorio de ECR
+ECR_REGISTRY=TU_ID_DE_CUENTA.dkr.ecr.tu-region-aws.amazonaws.com
+ECR_REPOSITORY=nombre-de-tu-repositorio-ecr
+
+# Configuración de la base de datos de WordPress (Producción)
+WORDPRESS_DB_HOST=endpoint-de-tu-db.rds.amazonaws.com
+WORDPRESS_DB_USER=usuario_de_db
+WORDPRESS_DB_PASSWORD=contraseña_de_db
+WORDPRESS_DB_NAME=nombre_de_la_db
 ```
 
-#### 2. Start the Services
+### 3. Dar Permisos de Ejecución al Script
+
+Asegúrate de que el script `start.sh` tenga permisos de ejecución:
 
 ```bash
-docker compose up -d
+chmod +x start.sh
 ```
 
-This will start:
-- MySQL 8.0 database container
-- WordPress container with Apache server
+### 4. Ejecutar el Script de Despliegue
 
-#### 3. Access WordPress
-
-Open your browser and navigate to:
-```
-http://localhost:8080
-```
-
-### Opción 2: Usando Dockerfile (Recomendado)
-
-#### 1. Build and Run
+El script `start.sh` automatiza todo el proceso. Ejecútalo con:
 
 ```bash
-# Construir la imagen
-docker build -t wordpress-fasecolda .
-
-# Ejecutar el contenedor
-docker run -d --name wordpress-app -p 8080:8080 wordpress-fasecolda
+./start.sh
 ```
 
-#### 2. Access WordPress
+El script realizará las siguientes acciones:
+1.  **Cargará** las variables de entorno desde `.env`.
+2.  **Creará** una red de Docker si no existe.
+3.  **Autenticará** Docker con tu registro de Amazon ECR.
+4.  **Construirá** la imagen de Docker de WordPress.
+5.  **Subirá** la imagen a tu repositorio de ECR.
+6.  **Creará** un volumen de Docker para la persistencia de datos si no existe.
+7.  **Iniciará** los contenedores de WordPress y NGINX.
 
-Open your browser and navigate to:
-```
-http://localhost:8080
-```
+### 5. Acceder a WordPress
 
-### Complete WordPress Setup
-
-1. Go to `http://localhost:8080` in your browser
-2. Complete the WordPress installation wizard
-3. Follow the setup wizard to configure your WordPress site
-
-## Project Structure
+Una vez que el script finalice, el sitio de WordPress estará disponible en la dirección IP pública de tu instancia de EC2, en el puerto 80.
 
 ```
-├── docker-compose.yml    # Docker services configuration
-├── Dockerfile           # Dockerfile para ejecutar con docker-compose
-├── .env.example         # Environment variables template
-├── .env                 # Your environment variables (create this)
-└── README.md           # This file
+http://<IP_PUBLICA_DE_TU_EC2>
 ```
 
-## Services
+## Administración de los Contenedores
 
-### Database (MySQL 8.0)
-- **Container**: `db`
-- **Port**: Internal MySQL port (3306)
-- **Data Persistence**: `db_data` volume
-- **Authentication**: Native password plugin for WordPress compatibility
+Puedes usar los siguientes comandos de Docker para gestionar los contenedores:
 
-### WordPress
-- **Container**: `wordpress`
-- **Port**: `8080:80` (host:container)
-- **Web Server**: Apache (supports .htaccess)
-- **Data Persistence**: `wp_data` volume
-- **Memory Limit**: 256MB
+*   **Ver logs en tiempo real**:
+    ```bash
+    docker logs -f fasecolda-wp
+    docker logs -f fasecolda-nginx
+    ```
 
-## Useful Commands
+*   **Detener los contenedores**:
+    ```bash
+    docker stop fasecolda-wp fasecolda-nginx
+    ```
 
-### Container Management
+*   **Reiniciar los contenedores**:
+    ```bash
+    docker restart fasecolda-wp fasecolda-nginx
+    ```
 
-#### Con Docker Compose:
+*   **Acceder a la terminal del contenedor de WordPress**:
+    ```bash
+    docker exec -it fasecolda-wp bash
+    ```
+
+## Limpieza
+
+Para detener y eliminar los contenedores, puedes usar:
+
 ```bash
-# Start services
-docker compose up -d
-
-# Stop services
-docker compose down
-
-# View logs
-docker compose logs -f
-
-# Restart services
-docker compose restart
+docker rm -f fasecolda-wp fasecolda-nginx
 ```
 
-#### Con Dockerfile:
+Si también deseas eliminar el volumen de datos (¡esto borrará todos los archivos de WordPress!), ejecuta:
+
 ```bash
-# Construir imagen
-docker build -t wordpress-fasecolda .
-
-# Ejecutar contenedor
-docker run -d --name wordpress-app -p 8080:8080 wordpress-fasecolda
-
-# Ver logs
-docker logs -f wordpress-app
-
-# Detener contenedor
-docker stop wordpress-app
-
-# Eliminar contenedor
-docker rm wordpress-app
+docker volume rm fasecolda-wp-data
 ```
-
-### WordPress Container Access
-```bash
-# Access WordPress container shell
-docker exec -it wordpress bash
-
-# Access database container shell
-docker exec -it db bash
-```
-
-### Database Access
-```bash
-# Connect to MySQL from host
-docker exec -it db mysql -u root -p
-
-# Connect to WordPress database
-docker exec -it db mysql -u wordpress -p wordpress
-```
-
-## WordPress Management
-
-Once WordPress is set up, you can:
-
-1. **Manage Content**: Create posts, pages, and media
-2. **Customize Appearance**: Install and customize themes
-3. **Add Functionality**: Install and configure plugins
-4. **User Management**: Manage users and their roles
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Permission Issues**: Ensure Docker has proper permissions
-2. **Port Conflicts**: Change port mapping in docker-compose.yml if 8080 is in use
-3. **Database Connection**: Verify environment variables in `.env` file
-4. **WordPress Not Loading**: Check container logs with `docker compose logs wordpress`
-
-### Reset Everything
-```bash
-# Stop and remove containers, networks, and volumes
-docker compose down -v
-
-# Remove all data (WARNING: This will delete all WordPress data)
-docker volume rm sm001-15-worpress-fasecolda_db_data sm001-15-worpress-fasecolda_wp_data
-```
-
-## Development Notes
-
-- The WordPress installation supports `.htaccess` files for custom URL rewriting
-- Database data and WordPress files are persisted using Docker volumes
-- Memory limit is set to 256MB for better performance
-- Uses MySQL native password authentication for WordPress compatibility
-
-## Security Considerations
-
-- Change default passwords in the `.env` file
-- Use strong passwords for database users
-- Consider using SSL certificates for production deployments
-- Regularly update WordPress and plugins
-
-## License
-
-This project is for educational and development purposes. WordPress is licensed under GPL v2 or later.
