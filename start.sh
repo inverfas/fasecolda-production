@@ -5,13 +5,9 @@ set -e
 # Directorio base relativo al script
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="$BASE_DIR/.env"
-NGINX_IMAGE="nginx:alpine"
 WP_CONTAINER="fasecolda-wp"
-NGINX_CONTAINER="fasecolda-nginx"
-NETWORK_NAME="fasecolda-net"
 PORT=80
 VOLUME_NAME="fasecolda-wp-data"
-NGINX_CONF="$BASE_DIR/nginx/default.conf"
 
 # Cargar variables de entorno
 source $ENV_FILE
@@ -19,7 +15,7 @@ source $ENV_FILE
 # Configurar imagen de ECR
 IMAGE_NAME="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
-echo "🔧 Iniciando despliegue de WordPress + NGINX..."
+echo "🔧 Iniciando despliegue de WordPress..."
 
 # Validar si el archivo .env existe
 if [ ! -f "$ENV_FILE" ]; then
@@ -27,19 +23,11 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-# Crear red si no existe
-if ! docker network ls | grep -q "$NETWORK_NAME"; then
-  echo "🔌 Creando red interna Docker: $NETWORK_NAME"
-  docker network create $NETWORK_NAME
+# Eliminar contenedor anterior si existe
+if [ "$(docker ps -aq -f name=$WP_CONTAINER)" ]; then
+  echo "🧹 Eliminando contenedor existente $WP_CONTAINER..."
+  docker rm -f $WP_CONTAINER
 fi
-
-# Eliminar contenedores anteriores si existen
-for c in $WP_CONTAINER $NGINX_CONTAINER; do
-  if [ "$(docker ps -aq -f name=$c)" ]; then
-    echo "🧹 Eliminando contenedor existente $c..."
-    docker rm -f $c
-  fi
-done
 
 # Verificar e instalar AWS CLI si no existe
 if ! command -v aws &> /dev/null; then
@@ -89,25 +77,14 @@ if ! docker volume ls | grep -q "$VOLUME_NAME"; then
   docker volume create $VOLUME_NAME
 fi
 
-# Lanzar contenedor de WordPress (PHP-FPM)
-echo "🚀 Lanzando contenedor WordPress (PHP-FPM)..."
+# Lanzar contenedor de WordPress (Apache)
+echo "🚀 Lanzando contenedor WordPress con Apache..."
 docker run -d \
   --name $WP_CONTAINER \
   --env-file $ENV_FILE \
-  --network $NETWORK_NAME \
   -v $VOLUME_NAME:/var/www/html \
-  --restart always \
-  $IMAGE_NAME
-
-# Lanzar contenedor de NGINX (exponiendo puerto 80)
-echo "🚀 Lanzando contenedor NGINX..."
-docker run -d \
-  --name $NGINX_CONTAINER \
-  --network $NETWORK_NAME \
-  -v $VOLUME_NAME:/var/www/html \
-  -v "$NGINX_CONF":/etc/nginx/conf.d/default.conf:ro \
   -p $PORT:80 \
   --restart always \
-  $NGINX_IMAGE
+  $IMAGE_NAME
 
 echo "✅ WordPress desplegado en http://$(curl -s ifconfig.me):$PORT"

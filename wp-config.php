@@ -1,4 +1,11 @@
 <?php
+// Trust Load Balancer HTTPS headers (must be at the top to prevent redirect loops)
+if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+    $_SERVER['HTTPS'] = 'on';
+}
+if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+    $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
+}
 
 // Environment type configuration
 if (!defined('WP_ENVIRONMENT_TYPE')) {
@@ -24,13 +31,6 @@ switch ($environment_type) {
         if (!defined('FORCE_SSL_ADMIN')) {
             define('FORCE_SSL_ADMIN', filter_var(getenv('FORCE_SSL_ADMIN'), FILTER_VALIDATE_BOOLEAN));
         }
-        // Comentado para usar solo HTTP
-        // if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-        //     $_SERVER['HTTPS'] = 'on';
-        // }
-        // if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
-        //     $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
-        // }
         break;
 
     case 'production':
@@ -47,13 +47,6 @@ switch ($environment_type) {
         if (!defined('FORCE_SSL_ADMIN')) {
             define('FORCE_SSL_ADMIN', filter_var(getenv('FORCE_SSL_ADMIN'), FILTER_VALIDATE_BOOLEAN));
         }
-        // Comentado para usar solo HTTP
-        // if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-        //     $_SERVER['HTTPS'] = 'on';
-        // }
-        // if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
-        //     $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
-        // }
         break;
 }
 
@@ -62,13 +55,6 @@ $db_name = getenv('WORDPRESS_DB_NAME');
 $db_user = getenv('WORDPRESS_DB_USER');
 $db_password = getenv('WORDPRESS_DB_PASSWORD');
 $db_host = getenv('WORDPRESS_DB_HOST') . ':3306';
-
-// Debug logging for database configuration
-error_log('=== DATABASE CONFIGURATION DEBUG ===');
-error_log('DB_NAME: ' . ($db_name ? $db_name : 'NOT SET'));
-error_log('DB_USER: ' . ($db_user ? $db_user : 'NOT SET'));
-error_log('DB_PASSWORD: ' . ($db_password ? 'SET (length: ' . strlen($db_password) . ')' : 'NOT SET'));
-error_log('DB_HOST: ' . ($db_host ? $db_host : 'NOT SET'));
 
 define('DB_NAME',     $db_name);
 define('DB_USER',     $db_user);
@@ -90,22 +76,6 @@ if ($db_ssl) {
 define('DB_CHARSET',  'utf8mb4');
 define('DB_COLLATE',  '');
 
-// Test database connectivity
-error_log('=== TESTING DATABASE CONNECTIVITY ===');
-try {
-    $test_connection = new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-    if ($test_connection->connect_error) {
-        error_log('Database connection FAILED: ' . $test_connection->connect_error);
-        error_log('MySQL error number: ' . $test_connection->connect_errno);
-    } else {
-        error_log('Database connection SUCCESS');
-        error_log('MySQL server version: ' . $test_connection->server_info);
-    }
-    $test_connection->close();
-} catch (Exception $e) {
-    error_log('Database connection EXCEPTION: ' . $e->getMessage());
-}
-
 // WordPress security keys
 define('AUTH_KEY',         getenv('AUTH_KEY'));
 define('SECURE_AUTH_KEY',  getenv('SECURE_AUTH_KEY'));
@@ -119,6 +89,9 @@ define('NONCE_SALT',       getenv('NONCE_SALT'));
 // File system method
 define('FS_METHOD', 'direct');
 
+// WordPress URLs (from environment variables)
+define('WP_HOME', getenv('WP_HOME') ?: 'http://localhost');
+define('WP_SITEURL', getenv('WP_SITEURL') ?: 'http://localhost');
 
 // Additional WordPress configurations
 define('WP_MEMORY_LIMIT', '256M');
