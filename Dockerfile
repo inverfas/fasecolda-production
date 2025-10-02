@@ -1,8 +1,8 @@
 FROM wordpress:latest
 
-# Install basic dependencies
+# Install basic dependencies and Varnish
 RUN apt-get update \
- && apt-get install -y --no-install-recommends unzip curl jq ca-certificates openssh-client nano telnet \
+ && apt-get install -y --no-install-recommends unzip curl jq ca-certificates openssh-client nano telnet varnish \
  && rm -rf /var/lib/apt/lists/*
 
 # Install WP-CLI for WordPress management
@@ -10,8 +10,14 @@ RUN curl -o wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages
  && chmod +x wp-cli.phar \
  && mv wp-cli.phar /usr/local/bin/wp
 
+# Copy custom PHP configuration
+COPY custom-php.ini /usr/local/etc/php/conf.d/custom-php.ini
+
 # Copy custom wp-config.php
 COPY wp-config.php /var/www/html/wp-config.php
+
+# Copy Varnish configuration
+COPY default.vcl /etc/varnish/default.vcl
 
 # Ensure proper permissions for WordPress critical directories
 RUN mkdir -p /var/www/html/wp-content/uploads \
@@ -29,6 +35,10 @@ RUN mkdir -p /var/lib/php/sessions /tmp \
  && chmod 1777 /tmp \
  && chmod 755 /var/lib/php/sessions
 
+# Configure Apache to listen on port 8080
+RUN sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf \
+ && sed -i 's/:80/:8080/' /etc/apache2/sites-available/000-default.conf
+
 # Build args for environment
 ARG ENVIRONMENT=development
 ARG WP_ENVIRONMENT_TYPE=development
@@ -37,7 +47,11 @@ ARG WP_ENVIRONMENT_TYPE=development
 ENV ENVIRONMENT=${ENVIRONMENT}
 ENV WP_ENVIRONMENT_TYPE=${WP_ENVIRONMENT_TYPE}
 
+# Copy startup script
+COPY start-varnish.sh /usr/local/bin/start-varnish.sh
+RUN chmod +x /usr/local/bin/start-varnish.sh
+
 EXPOSE 80
 
-# Start Apache in foreground
-CMD ["apache2-foreground"]
+# Start Varnish and Apache
+CMD ["/usr/local/bin/start-varnish.sh"]

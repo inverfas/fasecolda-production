@@ -97,6 +97,9 @@ define('WP_SITEURL', getenv('WP_SITEURL') ?: 'http://localhost');
 define('WP_MEMORY_LIMIT', '256M');
 define('WP_MAX_MEMORY_LIMIT', '256M');
 
+// Enable WordPress cache
+define('WP_CACHE', true);
+
 // Disable file editing from WordPress admin
 define('DISALLOW_FILE_EDIT', true);
 
