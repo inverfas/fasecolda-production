@@ -2,7 +2,7 @@ FROM wordpress:latest
 
 # Install basic dependencies and Varnish
 RUN apt-get update \
- && apt-get install -y --no-install-recommends unzip curl jq ca-certificates openssh-client nano telnet varnish \
+ && apt-get install -y --no-install-recommends unzip curl jq ca-certificates openssh-client nano telnet varnish netcat-openbsd \
  && rm -rf /var/lib/apt/lists/*
 
 # Install WP-CLI for WordPress management
@@ -35,9 +35,10 @@ RUN mkdir -p /var/lib/php/sessions /tmp \
  && chmod 1777 /tmp \
  && chmod 755 /var/lib/php/sessions
 
-# Configure Apache to listen on port 8080
+# Configure Apache to listen on port 8080 and set ServerName
 RUN sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf \
- && sed -i 's/:80/:8080/' /etc/apache2/sites-available/000-default.conf
+ && sed -i 's/:80/:8080/' /etc/apache2/sites-available/000-default.conf \
+ && echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
 # Build args for environment
 ARG ENVIRONMENT=development
