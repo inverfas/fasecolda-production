@@ -42,13 +42,13 @@ get_varnish_stats() {
 # Function to calculate cache hit rate
 get_cache_hit_rate() {
     local stats=$(get_varnish_stats)
-    local cache_hit=$(echo "$stats" | grep "MAIN.cache_hit" | awk '{print $2}')
-    local cache_miss=$(echo "$stats" | grep "MAIN.cache_miss" | awk '{print $2}')
+    local cache_hit=$(echo "$stats" | grep "MAIN.cache_hit " | awk '{print $2}' | tr -d '\n' | tr -d ' ')
+    local cache_miss=$(echo "$stats" | grep "MAIN.cache_miss " | awk '{print $2}' | tr -d '\n' | tr -d ' ')
 
-    if [ -n "$cache_hit" ] && [ -n "$cache_miss" ]; then
+    if [ -n "$cache_hit" ] && [ -n "$cache_miss" ] && [ "$cache_hit" != "N/A" ]; then
         local total=$((cache_hit + cache_miss))
         if [ $total -gt 0 ]; then
-            echo "scale=2; ($cache_hit * 100) / $total" | bc
+            echo "scale=2; ($cache_hit * 100) / $total" | bc 2>/dev/null || echo "0"
         else
             echo "0"
         fi
@@ -60,7 +60,7 @@ get_cache_hit_rate() {
 # Function to get backend connections
 get_backend_conn() {
     local stats=$(get_varnish_stats)
-    echo "$stats" | grep "MAIN.backend_conn" | awk '{print $2}' || echo "0"
+    echo "$stats" | grep "MAIN.backend_conn " | awk '{print $2}' | tr -d '\n' | tr -d ' ' || echo "0"
 }
 
 # Function to get Varnish memory usage
@@ -126,9 +126,9 @@ while true; do
 
     # Detailed Varnish stats
     stats=$(get_varnish_stats)
-    cache_hit=$(echo "$stats" | grep "MAIN.cache_hit " | awk '{print $2}')
-    cache_miss=$(echo "$stats" | grep "MAIN.cache_miss " | awk '{print $2}')
-    backend_fail=$(echo "$stats" | grep "MAIN.backend_fail " | awk '{print $2}')
+    cache_hit=$(echo "$stats" | grep "MAIN.cache_hit " | awk '{print $2}' | tr -d '\n' | tr -d ' ')
+    cache_miss=$(echo "$stats" | grep "MAIN.cache_miss " | awk '{print $2}' | tr -d '\n' | tr -d ' ')
+    backend_fail=$(echo "$stats" | grep "MAIN.backend_fail " | awk '{print $2}' | tr -d '\n' | tr -d ' ')
 
     echo "  Cache Hits:          ${cache_hit:-0}"
     echo "  Cache Misses:        ${cache_miss:-0}"
