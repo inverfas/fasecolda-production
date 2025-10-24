@@ -24,7 +24,7 @@ echo "Starting Varnish on port 80..."
 exec varnishd \
     -F \
     -f /etc/varnish/default.vcl \
-    -s malloc,256m \
+    -s malloc,1G \
     -a :80 \
     -T localhost:6082 \
     -p feature=+esi_ignore_https \
