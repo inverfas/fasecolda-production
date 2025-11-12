@@ -9,13 +9,15 @@ backend default {
     .between_bytes_timeout = 5s;
     .max_connections = 100;
 
-    .probe = {
-        .url = "/";
-        .timeout = 2s;
-        .interval = 5s;
-        .window = 5;
-        .threshold = 3;
-    }
+    # Health check disabled - WordPress redirects / to another URL
+    # Varnish will assume backend is always healthy
+    # .probe = {
+    #     .url = "/";
+    #     .timeout = 2s;
+    #     .interval = 5s;
+    #     .window = 5;
+    #     .threshold = 3;
+    # }
 }
 
 # Access control list for purge requests
