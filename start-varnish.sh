@@ -19,7 +19,7 @@ done
 
 echo "Apache is running on port 8080"
 
-# Start Varnish in the foreground
+# Start Varnish in the foreground with resource limits
 echo "Starting Varnish on port 80..."
 exec varnishd \
     -F \
@@ -27,6 +27,9 @@ exec varnishd \
     -s malloc,1G \
     -a :80 \
     -T localhost:6082 \
+    -p thread_pool_min=50 \
+    -p thread_pool_max=500 \
+    -p thread_pools=2 \
     -p feature=+esi_ignore_https \
     -p feature=+esi_disable_xml_check \
     -p vcc_allow_inline_c=on

@@ -4,10 +4,18 @@ vcl 4.1;
 backend default {
     .host = "127.0.0.1";
     .port = "8080";
-    .connect_timeout = 5s;
-    .first_byte_timeout = 60s;
-    .between_bytes_timeout = 10s;
-    .max_connections = 300;
+    .connect_timeout = 3s;
+    .first_byte_timeout = 15s;
+    .between_bytes_timeout = 5s;
+    .max_connections = 100;
+
+    .probe = {
+        .url = "/";
+        .timeout = 2s;
+        .interval = 5s;
+        .window = 5;
+        .threshold = 3;
+    }
 }
 
 # Access control list for purge requests
