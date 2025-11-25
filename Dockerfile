@@ -40,6 +40,13 @@ RUN sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf \
  && sed -i 's/:80/:8080/' /etc/apache2/sites-available/000-default.conf \
  && echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
+# Copy and enable optimized MPM prefork configuration
+COPY mpm_prefork.conf /etc/apache2/mods-available/mpm_prefork.conf
+
+# Copy Apache performance configuration
+COPY apache-performance.conf /etc/apache2/conf-available/performance.conf
+RUN a2enconf performance
+
 # Build args for environment
 ARG ENVIRONMENT=development
 ARG WP_ENVIRONMENT_TYPE=development

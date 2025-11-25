@@ -77,14 +77,15 @@ if ! docker volume ls | grep -q "$VOLUME_NAME"; then
   docker volume create $VOLUME_NAME
 fi
 
-# Lanzar contenedor de WordPress (Apache)
-echo "🚀 Lanzando contenedor WordPress con Apache..."
+# Lanzar contenedor de WordPress (Varnish + Apache)
+echo "🚀 Lanzando contenedor WordPress con Varnish + Apache..."
 docker run -d \
   --name $WP_CONTAINER \
   --env-file $ENV_FILE \
   -v $VOLUME_NAME:/var/www/html \
   -p $PORT:80 \
-  --restart always \
+  --restart unless-stopped \
+  --pids-limit=200 \
   $IMAGE_NAME
 
 echo "✅ WordPress desplegado en http://$(curl -s ifconfig.me):$PORT"

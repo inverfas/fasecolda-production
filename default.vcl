@@ -4,9 +4,20 @@ vcl 4.1;
 backend default {
     .host = "127.0.0.1";
     .port = "8080";
-    .connect_timeout = 600s;
-    .first_byte_timeout = 600s;
-    .between_bytes_timeout = 600s;
+    .connect_timeout = 3s;
+    .first_byte_timeout = 15s;
+    .between_bytes_timeout = 5s;
+    .max_connections = 100;
+
+    # Health check disabled - WordPress redirects / to another URL
+    # Varnish will assume backend is always healthy
+    # .probe = {
+    #     .url = "/";
+    #     .timeout = 2s;
+    #     .interval = 5s;
+    #     .window = 5;
+    #     .threshold = 3;
+    # }
 }
 
 # Access control list for purge requests
@@ -19,13 +30,16 @@ sub vcl_recv {
     # Remove has_js cookie
     set req.http.Cookie = regsuball(req.http.Cookie, "has_js=[^;]+(; )?", "");
 
-    # Remove Google Analytics cookies
+    # Remove Google Analytics and tracking cookies
     set req.http.Cookie = regsuball(req.http.Cookie, "__utm.=[^;]+(; )?", "");
     set req.http.Cookie = regsuball(req.http.Cookie, "_ga=[^;]+(; )?", "");
     set req.http.Cookie = regsuball(req.http.Cookie, "_gat=[^;]+(; )?", "");
+    set req.http.Cookie = regsuball(req.http.Cookie, "_gid=[^;]+(; )?", "");
     set req.http.Cookie = regsuball(req.http.Cookie, "utmctr=[^;]+(; )?", "");
     set req.http.Cookie = regsuball(req.http.Cookie, "utmcmd.=[^;]+(; )?", "");
     set req.http.Cookie = regsuball(req.http.Cookie, "utmccn.=[^;]+(; )?", "");
+    set req.http.Cookie = regsuball(req.http.Cookie, "_fbp=[^;]+(; )?", "");
+    set req.http.Cookie = regsuball(req.http.Cookie, "fr=[^;]+(; )?", "");
 
     # Remove empty cookies
     if (req.http.Cookie ~ "^\s*$") {
@@ -45,8 +59,13 @@ sub vcl_recv {
         return (pass);
     }
 
-    # Don't cache WordPress admin, login, or AJAX
-    if (req.url ~ "wp-admin" || req.url ~ "wp-login" || req.url ~ "wp-cron.php") {
+    # Don't cache WordPress admin or login
+    if (req.url ~ "wp-admin" || req.url ~ "wp-login") {
+        return (pass);
+    }
+
+    # Pass wp-cron.php but don't wait for it (let it run async)
+    if (req.url ~ "wp-cron.php") {
         return (pass);
     }
 
@@ -86,9 +105,10 @@ sub vcl_backend_response {
         set beresp.http.Cache-Control = "public, max-age=3600";
     }
 
-    # Cache HTML pages for 5 minutes
+    # Cache HTML pages for 1 hour
     if (beresp.http.Content-Type ~ "text/html") {
-        set beresp.ttl = 5m;
+        set beresp.ttl = 1h;
+        set beresp.http.Cache-Control = "public, max-age=3600";
     }
 
     # Don't cache if WordPress sets no-cache headers
@@ -98,8 +118,13 @@ sub vcl_backend_response {
         return (deliver);
     }
 
-    # Enable grace mode (serve stale content if backend is down)
-    set beresp.grace = 6h;
+    # Enable grace mode (serve stale content if backend is down or slow)
+    set beresp.grace = 24h;
+
+    # Keep object in cache even after TTL expires for grace period
+    if (beresp.ttl < 1h) {
+        set beresp.ttl = 1h;
+    }
 
     return (deliver);
 }
