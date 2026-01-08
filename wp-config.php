@@ -100,6 +100,11 @@ define('WP_MAX_MEMORY_LIMIT', '256M');
 // Enable WordPress cache
 define('WP_CACHE', true);
 
+// Disable per-request wp-cron; run it via system cron instead
+if (!defined('DISABLE_WP_CRON')) {
+    define('DISABLE_WP_CRON', true);
+}
+
 // Disable file editing from WordPress admin
 define('DISALLOW_FILE_EDIT', true);
 
