@@ -74,6 +74,8 @@ sub vcl_recv {
         return (pass);
     }
 
+    # __CACHE_EXCLUDE_URLS__ (replaced at runtime from CACHE_EXCLUDE_URLS env var)
+
     # Don't cache logged-in users or commenters
     if (req.http.Cookie ~ "wordpress_logged_in_|comment_author") {
         return (pass);

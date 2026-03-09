@@ -2,6 +2,10 @@
 // Trust Load Balancer HTTPS headers (must be at the top to prevent redirect loops)
 if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
     $_SERVER['HTTPS'] = 'on';
+    $_SERVER['SERVER_PORT'] = 443;
+} else {
+    // Apache runs on 8080 behind Varnish (port 80) - fix port so WordPress generates correct URLs
+    $_SERVER['SERVER_PORT'] = 80;
 }
 if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
     $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];

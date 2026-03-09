@@ -1,0 +1,89 @@
+version: 0.2
+
+# AWS CodeBuild buildspec for WordPress + Varnish Docker image
+# This file defines the build process for creating and pushing the Docker image to ECR
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: us-east-1
+    AWS_REGION: us-east-1
+    ECR_REGISTRY: 823365583633.dkr.ecr.us-east-1.amazonaws.com
+    ECR_REPOSITORY: fasecolda/new-site
+
+phases:
+  pre_build:
+    commands:
+      - echo "==================================="
+      - echo "PRE-BUILD PHASE"
+      - echo "==================================="
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+      - echo "✅ Logged in to ECR successfully"
+
+      - echo "Setting up image tags..."
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+      - IMAGE_URI_COMMIT=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+      - IMAGE_URI_LATEST=$ECR_REGISTRY/$ECR_REPOSITORY:latest
+      - echo "Commit hash: $COMMIT_HASH"
+      - echo "Image tag: $IMAGE_TAG"
+      - echo "Image URI (commit): $IMAGE_URI_COMMIT"
+      - echo "Image URI (latest): $IMAGE_URI_LATEST"
+
+      - echo "Build started on $(date)"
+      - echo "Build ID: $CODEBUILD_BUILD_ID"
+
+  build:
+    commands:
+      - echo "==================================="
+      - echo "BUILD PHASE"
+      - echo "==================================="
+      - echo "Building Docker image..."
+      - |
+        docker build \
+          --build-arg ENVIRONMENT=production \
+          --build-arg WP_ENVIRONMENT_TYPE=production \
+          --tag $IMAGE_URI_COMMIT \
+          --tag $IMAGE_URI_LATEST \
+          --file Dockerfile \
+          .
+      - echo "✅ Docker image built successfully"
+
+      - echo "Listing Docker images..."
+      - docker images
+
+  post_build:
+    commands:
+      - echo "==================================="
+      - echo "POST-BUILD PHASE"
+      - echo "==================================="
+      - echo "Pushing Docker images to ECR..."
+
+      - echo "Pushing image with commit tag: $IMAGE_URI_COMMIT"
+      - docker push $IMAGE_URI_COMMIT
+      - echo "✅ Pushed $IMAGE_URI_COMMIT"
+
+      - echo "Pushing image with latest tag: $IMAGE_URI_LATEST"
+      - docker push $IMAGE_URI_LATEST
+      - echo "✅ Pushed $IMAGE_URI_LATEST"
+
+      - echo "Build completed on $(date)"
+      - echo "==================================="
+      - echo "BUILD SUCCESS"
+      - echo "==================================="
+      - echo "Images pushed:"
+      - echo "  - $IMAGE_URI_COMMIT"
+      - echo "  - $IMAGE_URI_LATEST"
+
+      - echo "Writing imagedefinitions.json file..."
+      - printf '[{"name":"wordpress","imageUri":"%s"}]' $IMAGE_URI_COMMIT > imagedefinitions.json
+      - cat imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json
+  name: BuildArtifact
+
+cache:
+  paths:
+    - '/root/.docker/**/*'

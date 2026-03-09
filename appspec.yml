@@ -1,0 +1,30 @@
+version: 0.0
+os: linux
+
+# AWS CodeDeploy AppSpec file for WordPress + Varnish deployment
+# This file defines the lifecycle hooks that run during deployment on EC2
+
+hooks:
+  # BeforeInstall: Stop and remove old container
+  BeforeInstall:
+    - location: scripts/stop-container.sh
+      timeout: 300
+      runas: root
+
+  # AfterInstall: Pull new image and start container
+  AfterInstall:
+    - location: scripts/start-container.sh
+      timeout: 600
+      runas: root
+
+  # ApplicationStart: Verify services are running
+  ApplicationStart:
+    - location: scripts/health-check.sh
+      timeout: 300
+      runas: root
+
+  # ValidateService: Final validation of deployment
+  ValidateService:
+    - location: scripts/validate-service.sh
+      timeout: 180
+      runas: root

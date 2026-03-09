@@ -1,0 +1,227 @@
+name: CI/CD Pipeline - WordPress Fasecolda
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger solo en tags tipo v1.0.0, v1.2.3, etc.
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: fasecolda/new-site
+  ECR_REGISTRY: 823365583633.dkr.ecr.us-east-1.amazonaws.com
+  CODEBUILD_PROJECT: fasecolda-wordpress-build
+  CODEDEPLOY_APP: fasecolda-app
+  CODEDEPLOY_GROUP: fasecolda-prod
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════
+  # JOB 1: Tests y validaciones (solo en PRs)
+  # ═══════════════════════════════════════════════════════════════
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate Dockerfile syntax
+        run: |
+          echo "Validating Dockerfile..."
+          docker build --no-cache -t test-build . || {
+            echo "Dockerfile build failed"
+            exit 1
+          }
+          echo "✅ Dockerfile is valid"
+
+      - name: Lint shell scripts
+        run: |
+          echo "Installing shellcheck..."
+          sudo apt-get update && sudo apt-get install -y shellcheck
+
+          echo "Linting start-varnish.sh..."
+          shellcheck start-varnish.sh || echo "⚠️ Warnings found in start-varnish.sh"
+
+          if [ -d "scripts" ]; then
+            echo "Linting deployment scripts..."
+            shellcheck scripts/*.sh || echo "⚠️ Warnings found in deployment scripts"
+          fi
+
+      - name: Check for secrets in code
+        run: |
+          echo "Checking for hardcoded secrets..."
+          if grep -r "AKIA" --exclude-dir=.git --exclude="*.md" .; then
+            echo "❌ Found AWS credentials in code"
+            exit 1
+          fi
+          echo "✅ No hardcoded credentials found"
+
+  # ═══════════════════════════════════════════════════════════════
+  # JOB 2: Build de imagen (dispara CodeBuild)
+  # ═══════════════════════════════════════════════════════════════
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    outputs:
+      image-tag: ${{ steps.image-info.outputs.image-tag }}
+      version: ${{ steps.image-info.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract version from tag
+        id: image-info
+        run: |
+          # Extraer el tag (ej: refs/tags/v1.0.0 -> v1.0.0)
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "image-tag=$VERSION" >> $GITHUB_OUTPUT
+          echo "Git Tag: $VERSION"
+          echo "This image will be tagged as: $VERSION and latest"
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          VERSION: ${{ steps.image-info.outputs.version }}
+        run: |
+          echo "Building Docker image for version: $VERSION"
+          docker build \
+            --build-arg ENVIRONMENT=production \
+            --build-arg WP_ENVIRONMENT_TYPE=production \
+            --label "version=$VERSION" \
+            --label "git.commit=$GITHUB_SHA" \
+            --label "git.tag=$VERSION" \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            .
+
+          echo "Pushing images to ECR..."
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          echo "✅ Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION"
+          echo "✅ Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:latest"
+          echo ""
+          echo "Available tags:"
+          echo "  - $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION (versioned)"
+          echo "  - $ECR_REGISTRY/$ECR_REPOSITORY:latest (always points to latest version)"
+
+  # ═══════════════════════════════════════════════════════════════
+  # JOB 3: Deploy (dispara CodeDeploy)
+  # ═══════════════════════════════════════════════════════════════
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create deployment package
+        run: |
+          echo "Creating deployment package..."
+          mkdir -p deployment
+          cp appspec.yml deployment/
+          cp -r scripts deployment/
+          echo "${{ needs.build.outputs.image-tag }}" > deployment/image-tag.txt
+
+          cd deployment
+          zip -r ../deployment.zip .
+          cd ..
+
+          echo "✅ Deployment package created"
+
+      - name: Upload to S3
+        run: |
+          DEPLOYMENT_BUCKET="fasecolda-deployments"
+          DEPLOYMENT_KEY="wordpress/${{ github.sha }}.zip"
+
+          # Verificar si bucket existe, si no crearlo
+          if ! aws s3 ls s3://$DEPLOYMENT_BUCKET 2>&1 | grep -q 'NoSuchBucket'; then
+            echo "Bucket exists"
+          else
+            echo "Creating S3 bucket..."
+            aws s3 mb s3://$DEPLOYMENT_BUCKET --region ${{ env.AWS_REGION }}
+          fi
+
+          echo "Uploading deployment package to S3..."
+          aws s3 cp deployment.zip s3://$DEPLOYMENT_BUCKET/$DEPLOYMENT_KEY
+
+          echo "✅ Deployment package uploaded to s3://$DEPLOYMENT_BUCKET/$DEPLOYMENT_KEY"
+
+      - name: Create CodeDeploy deployment
+        id: deploy
+        run: |
+          echo "Creating CodeDeploy deployment..."
+
+          DEPLOYMENT_ID=$(aws deploy create-deployment \
+            --application-name $CODEDEPLOY_APP \
+            --deployment-group-name $CODEDEPLOY_GROUP \
+            --s3-location bucket=fasecolda-deployments,key=wordpress/${{ github.sha }}.zip,bundleType=zip \
+            --description "Deployment for commit ${{ github.sha }}" \
+            --query 'deploymentId' \
+            --output text)
+
+          echo "deployment-id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          echo "✅ Deployment ID: $DEPLOYMENT_ID"
+
+      - name: Wait for deployment
+        run: |
+          DEPLOYMENT_ID="${{ steps.deploy.outputs.deployment-id }}"
+          echo "Waiting for deployment $DEPLOYMENT_ID to complete..."
+
+          aws deploy wait deployment-successful \
+            --deployment-id $DEPLOYMENT_ID
+
+          echo "✅ Deployment completed successfully!"
+
+      - name: Get deployment status
+        if: always()
+        run: |
+          DEPLOYMENT_ID="${{ steps.deploy.outputs.deployment-id }}"
+
+          if [ -n "$DEPLOYMENT_ID" ]; then
+            STATUS=$(aws deploy get-deployment \
+              --deployment-id $DEPLOYMENT_ID \
+              --query 'deploymentInfo.status' \
+              --output text)
+
+            echo "Final deployment status: $STATUS"
+
+            if [ "$STATUS" != "Succeeded" ]; then
+              echo "❌ Deployment failed with status: $STATUS"
+
+              # Get error information
+              aws deploy get-deployment \
+                --deployment-id $DEPLOYMENT_ID \
+                --query 'deploymentInfo.errorInformation' \
+                --output json
+            fi
+          fi
